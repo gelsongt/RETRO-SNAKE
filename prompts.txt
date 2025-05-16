@@ -1,0 +1,1 @@
+crie um site com jogo snake que o jogo funcione e gere pontos com ranque use cores retro com estilo fliperama deixe o site em ingles

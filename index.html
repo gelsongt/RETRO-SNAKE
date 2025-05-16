@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Snake Arcade</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #0f0f1a;
+            color: #00ff00;
+            overflow-x: hidden;
+        }
+        
+        .game-container {
+            border: 8px solid #ff00ff;
+            box-shadow: 0 0 20px #ff00ff, inset 0 0 20px #ff00ff;
+            position: relative;
+        }
+        
+        .game-container::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                linear-gradient(rgba(255, 0, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 0, 255, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+        }
+        
+        .pixel-text {
+            text-shadow: 3px 3px 0 #ff00ff;
+            letter-spacing: 2px;
+        }
+        
+        .glow {
+            animation: glow 1.5s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from {
+                text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 15px #ff00ff, 0 0 20px #ff00ff;
+            }
+            to {
+                text-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 30px #ff00ff, 0 0 40px #ff00ff;
+            }
+        }
+        
+        .snake-segment {
+            background-color: #00ff00;
+            border: 1px solid #00cc00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        .food {
+            background-color: #ff0000;
+            border: 1px solid #cc0000;
+            box-shadow: 0 0 15px #ff0000;
+            border-radius: 50%;
+            animation: pulse 0.5s infinite alternate;
+        }
+        
+        @keyframes pulse {
+            from {
+                transform: scale(0.9);
+            }
+            to {
+                transform: scale(1.1);
+            }
+        }
+        
+        .leaderboard-item {
+            border-bottom: 2px dashed #ff00ff;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .button-arcade {
+            position: relative;
+            border: 3px solid #00ff00;
+            background-color: #000;
+            color: #00ff00;
+            padding: 10px 20px;
+            font-family: 'Press Start 2P', cursive;
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+        
+        .button-arcade:hover {
+            background-color: #00ff00;
+            color: #000;
+            box-shadow: 0 0 15px #00ff00;
+        }
+        
+        .button-arcade:active {
+            transform: translateY(2px);
+        }
+        
+        .button-arcade::before {
+            content: "";
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border: 2px solid #ff00ff;
+            pointer-events: none;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="text-center mb-8">
+        <h1 class="text-4xl md:text-6xl pixel-text glow mb-4">RETRO SNAKE ARCADE</h1>
+        <p class="text-lg md:text-xl mb-6">Eat the food. Grow longer. Don't crash!</p>
+    </div>
+    
+    <div class="flex flex-col md:flex-row gap-8 w-full max-w-6xl">
+        <!-- Game Area -->
+        <div class="flex-1">
+            <div class="game-container mx-auto" style="width: 400px; height: 400px;">
+                <canvas id="gameCanvas" width="400" height="400" class="w-full h-full"></canvas>
+            </div>
+            
+            <div class="flex justify-between mt-4 px-2">
+                <div class="text-xl">
+                    <i class="fas fa-star text-yellow-400 mr-2"></i>
+                    <span id="score">0</span>
+                </div>
+                <div class="text-xl">
+                    <i class="fas fa-tachometer-alt text-blue-400 mr-2"></i>
+                    <span id="speed">1</span>x
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-center gap-4">
+                <button id="startBtn" class="button-arcade">
+                    <i class="fas fa-play mr-2"></i> START
+                </button>
+                <button id="pauseBtn" class="button-arcade" disabled>
+                    <i class="fas fa-pause mr-2"></i> PAUSE
+                </button>
+            </div>
+        </div>
+        
+        <!-- Leaderboard and Instructions -->
+        <div class="flex-1 max-w-md">
+            <div class="bg-black bg-opacity-70 p-6 border-2 border-purple-500 mb-6">
+                <h2 class="text-2xl pixel-text mb-4 flex items-center">
+                    <i class="fas fa-trophy text-yellow-400 mr-3"></i> TOP PLAYERS
+                </h2>
+                <div id="leaderboard" class="space-y-3">
+                    <!-- Leaderboard items will be added here by JavaScript -->
+                    <div class="leaderboard-item flex justify-between items-center py-2">
+                        <span class="text-gray-400">No scores yet</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-black bg-opacity-70 p-6 border-2 border-blue-500">
+                <h2 class="text-2xl pixel-text mb-4 flex items-center">
+                    <i class="fas fa-gamepad text-green-400 mr-3"></i> HOW TO PLAY
+                </h2>
+                <ul class="space-y-3 text-sm">
+                    <li class="flex items-start">
+                        <i class="fas fa-arrow-up text-green-400 mt-1 mr-3"></i>
+                        <span>Use arrow keys or WASD to control the snake</span>
+                    </li>
+                    <li class="flex items-start">
+                        <i class="fas fa-apple-alt text-red-400 mt-1 mr-3"></i>
+                        <span>Eat the red food to grow and score points</span>
+                    </li>
+                    <li class="flex items-start">
+                        <i class="fas fa-skull text-gray-400 mt-1 mr-3"></i>
+                        <span>Avoid hitting walls or yourself</span>
+                    </li>
+                    <li class="flex items-start">
+                        <i class="fas fa-bolt text-yellow-400 mt-1 mr-3"></i>
+                        <span>Speed increases every 5 foods eaten</span>
+                    </li>
+                </ul>
+                
+                <div class="mt-6 pt-4 border-t border-dashed border-purple-500">
+                    <h3 class="text-lg pixel-text mb-2">HIGH SCORE</h3>
+                    <div id="highScoreDisplay" class="text-3xl text-yellow-400">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Game Over Modal -->
+    <div id="gameOverModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center hidden z-50">
+        <div class="bg-black border-4 border-red-500 p-8 max-w-md text-center relative">
+            <div class="absolute -top-4 -left-4 -right-4 -bottom-4 border-4 border-yellow-500 pointer-events-none opacity-50"></div>
+            <h2 class="text-4xl pixel-text text-red-500 mb-6">GAME OVER!</h2>
+            <p class="text-xl mb-2">Your score: <span id="finalScore" class="text-green-400">0</span></p>
+            <p class="text-sm mb-6">Enter your name for the leaderboard:</p>
+            <input type="text" id="playerName" class="bg-black border-2 border-green-500 px-4 py-2 w-full mb-6 font-mono focus:outline-none focus:border-yellow-500" maxlength="10" placeholder="ARCADE HERO">
+            <button id="saveScoreBtn" class="button-arcade w-full py-3">
+                <i class="fas fa-save mr-2"></i> SAVE SCORE
+            </button>
+        </div>
+    </div>
+    
+    <footer class="mt-12 text-center text-xs text-gray-500">
+        <p>© 2023 RETRO SNAKE ARCADE | MADE WITH <i class="fas fa-heart text-red-500"></i> FOR FLIPPERAMA LOVERS</p>
+    </footer>
+
+    <script>
+        // Game variables
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gridSize = 20;
+        const gridWidth = canvas.width / gridSize;
+        const gridHeight = canvas.height / gridSize;
+        
+        let snake = [];
+        let food = {};
+        let direction = 'right';
+        let nextDirection = 'right';
+        let gameInterval;
+        let gameSpeed = 150; // milliseconds
+        let score = 0;
+        let speedLevel = 1;
+        let isPaused = false;
+        let gameRunning = false;
+        
+        // Leaderboard data
+        let leaderboard = JSON.parse(localStorage.getItem('snakeLeaderboard')) || [];
+        
+        // DOM elements
+        const scoreDisplay = document.getElementById('score');
+        const speedDisplay = document.getElementById('speed');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+        const leaderboardElement = document.getElementById('leaderboard');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const gameOverModal = document.getElementById('gameOverModal');
+        const finalScoreDisplay = document.getElementById('finalScore');
+        const playerNameInput = document.getElementById('playerName');
+        const saveScoreBtn = document.getElementById('saveScoreBtn');
+        
+        // Initialize the game
+        function initGame() {
+            // Create initial snake
+            snake = [
+                {x: 5, y: 10},
+                {x: 4, y: 10},
+                {x: 3, y: 10}
+            ];
+            
+            // Create first food
+            createFood();
+            
+            // Reset game state
+            direction = 'right';
+            nextDirection = 'right';
+            score = 0;
+            speedLevel = 1;
+            gameSpeed = 150;
+            
+            // Update displays
+            scoreDisplay.textContent = score;
+            speedDisplay.textContent = speedLevel;
+            
+            // Draw initial state
+            draw();
+        }
+        
+        // Main game loop
+        function gameLoop() {
+            if (isPaused) return;
+            
+            // Move snake
+            moveSnake();
+            
+            // Check for collisions
+            if (checkCollision()) {
+                gameOver();
+                return;
+            }
+            
+            // Check if snake ate food
+            if (snake[0].x === food.x && snake[0].y === food.y) {
+                eatFood();
+            }
+            
+            // Draw everything
+            draw();
+        }
+        
+        // Move the snake
+        function moveSnake() {
+            // Update direction
+            direction = nextDirection;
+            
+            // Get head position
+            const head = {x: snake[0].x, y: snake[0].y};
+            
+            // Move head based on direction
+            switch (direction) {
+                case 'up':
+                    head.y -= 1;
+                    break;
+                case 'down':
+                    head.y += 1;
+                    break;
+                case 'left':
+                    head.x -= 1;
+                    break;
+                case 'right':
+                    head.x += 1;
+                    break;
+            }
+            
+            // Add new head to beginning of array
+            snake.unshift(head);
+            
+            // Remove tail (unless we just ate food, handled in eatFood)
+            snake.pop();
+        }
+        
+        // Check for collisions
+        function checkCollision() {
+            const head = snake[0];
+            
+            // Check wall collision
+            if (head.x < 0 || head.x >= gridWidth || head.y < 0 || head.y >= gridHeight) {
+                return true;
+            }
+            
+            // Check self collision (skip first segment)
+            for (let i = 1; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+        
+        // Create new food at random position
+        function createFood() {
+            // Create random position
+            food = {
+                x: Math.floor(Math.random() * gridWidth),
+                y: Math.floor(Math.random() * gridHeight)
+            };
+            
+            // Make sure food doesn't appear on snake
+            for (let segment of snake) {
+                if (segment.x === food.x && segment.y === food.y) {
+                    return createFood(); // Try again
+                }
+            }
+        }
+        
+        // Handle eating food
+        function eatFood() {
+            // Increase score
+            score += 10 * speedLevel;
+            scoreDisplay.textContent = score;
+            
+            // Add new segment to snake (by not removing tail)
+            const tail = snake[snake.length - 1];
+            snake.push({...tail});
+            
+            // Every 5 foods, increase speed
+            if (score % 50 === 0) {
+                increaseSpeed();
+            }
+            
+            // Create new food
+            createFood();
+        }
+        
+        // Increase game speed
+        function increaseSpeed() {
+            speedLevel++;
+            speedDisplay.textContent = speedLevel;
+            
+            // Decrease interval time (but not below 50ms)
+            gameSpeed = Math.max(50, gameSpeed - 20);
+            
+            // Restart game interval with new speed
+            if (gameRunning) {
+                clearInterval(gameInterval);
+                gameInterval = setInterval(gameLoop, gameSpeed);
+            }
+        }
+        
+        // Draw everything on canvas
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#0f0f1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw grid lines
+            ctx.strokeStyle = 'rgba(255, 0, 255, 0.1)';
+            ctx.lineWidth = 1;
+            
+            // Vertical lines
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+            
+            // Draw snake
+            for (let segment of snake) {
+                ctx.fillStyle = '#00ff00';
+                ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize, gridSize);
+                
+                // Add some styling to make it look retro
+                ctx.strokeStyle = '#00cc00';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(segment.x * gridSize, segment.y * gridSize, gridSize, gridSize);
+                
+                // Add glow effect to head
+                if (segment === snake[0]) {
+                    ctx.shadowColor = '#00ff00';
+                    ctx.shadowBlur = 10;
+                    ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize, gridSize);
+                    ctx.shadowBlur = 0;
+                }
+            }
+            
+            // Draw food
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath();
+            ctx.arc(
+                food.x * gridSize + gridSize / 2,
+                food.y * gridSize + gridSize / 2,
+                gridSize / 2 - 2,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+            
+            // Add glow to food
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 15;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+        
+        // Game over
+        function gameOver() {
+            clearInterval(gameInterval);
+            gameRunning = false;
+            
+            // Update UI
+            startBtn.disabled = false;
+            pauseBtn.disabled = true;
+            
+            // Show game over modal
+            finalScoreDisplay.textContent = score;
+            gameOverModal.classList.remove('hidden');
+            
+            // Focus on name input
+            playerNameInput.focus();
+        }
+        
+        // Start game
+        function startGame() {
+            if (gameRunning) return;
+            
+            initGame();
+            gameRunning = true;
+            isPaused = false;
+            
+            // Update UI
+            startBtn.disabled = true;
+            pauseBtn.disabled = false;
+            
+            // Start game loop
+            gameInterval = setInterval(gameLoop, gameSpeed);
+        }
+        
+        // Pause/resume game
+        function togglePause() {
+            isPaused = !isPaused;
+            
+            if (isPaused) {
+                pauseBtn.innerHTML = '<i class="fas fa-play mr-2"></i> RESUME';
+            } else {
+                pauseBtn.innerHTML = '<i class="fas fa-pause mr-2"></i> PAUSE';
+            }
+        }
+        
+        // Save score to leaderboard
+        function saveScore() {
+            const playerName = playerNameInput.value.trim() || 'ANONYMOUS';
+            
+            // Add to leaderboard
+            leaderboard.push({
+                name: playerName.toUpperCase(),
+                score: score,
+                date: new Date().toLocaleDateString()
+            });
+            
+            // Sort by score (descending)
+            leaderboard.sort((a, b) => b.score - a.score);
+            
+            // Keep only top 10 scores
+            if (leaderboard.length > 10) {
+                leaderboard = leaderboard.slice(0, 10);
+            }
+            
+            // Save to localStorage
+            localStorage.setItem('snakeLeaderboard', JSON.stringify(leaderboard));
+            
+            // Update leaderboard display
+            updateLeaderboard();
+            
+            // Hide modal
+            gameOverModal.classList.add('hidden');
+            
+            // Reset input
+            playerNameInput.value = '';
+        }
+        
+        // Update leaderboard display
+        function updateLeaderboard() {
+            // Clear current leaderboard
+            leaderboardElement.innerHTML = '';
+            
+            // Get high score
+            const highScore = leaderboard.length > 0 ? leaderboard[0].score : 0;
+            highScoreDisplay.textContent = highScore;
+            
+            if (leaderboard.length === 0) {
+                leaderboardElement.innerHTML = `
+                    <div class="leaderboard-item flex justify-between items-center py-2">
+                        <span class="text-gray-400">No scores yet</span>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Add each leaderboard entry
+            leaderboard.forEach((entry, index) => {
+                const leaderboardItem = document.createElement('div');
+                leaderboardItem.className = 'leaderboard-item flex justify-between items-center py-2';
+                leaderboardItem.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="text-yellow-400 w-6 text-right mr-3">${index + 1}.</span>
+                        <span>${entry.name}</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="text-green-400 mr-2">${entry.score}</span>
+                        <span class="text-xs text-gray-400">${entry.date}</span>
+                    </div>
+                `;
+                leaderboardElement.appendChild(leaderboardItem);
+            });
+        }
+        
+        // Keyboard controls
+        function handleKeyDown(e) {
+            // Prevent default for arrow keys to stop page scrolling
+            if ([37, 38, 39, 40].includes(e.keyCode)) {
+                e.preventDefault();
+            }
+            
+            // Only process input if game is running and not paused
+            if (!gameRunning || isPaused) return;
+            
+            // Change direction based on key press
+            switch (e.keyCode) {
+                case 37: // Left
+                case 65: // A
+                    if (direction !== 'right') nextDirection = 'left';
+                    break;
+                case 38: // Up
+                case 87: // W
+                    if (direction !== 'down') nextDirection = 'up';
+                    break;
+                case 39: // Right
+                case 68: // D
+                    if (direction !== 'left') nextDirection = 'right';
+                    break;
+                case 40: // Down
+                case 83: // S
+                    if (direction !== 'up') nextDirection = 'down';
+                    break;
+                case 32: // Space
+                    togglePause();
+                    break;
+            }
+        }
+        
+        // Event listeners
+        document.addEventListener('keydown', handleKeyDown);
+        startBtn.addEventListener('click', startGame);
+        pauseBtn.addEventListener('click', togglePause);
+        saveScoreBtn.addEventListener('click', saveScore);
+        
+        // Initialize leaderboard
+        updateLeaderboard();
+        
+        // Easter egg - Konami code
+        const konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+        let konamiIndex = 0;
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.key === konamiCode[konamiIndex]) {
+                konamiIndex++;
+                if (konamiIndex === konamiCode.length) {
+                    // Konami code entered!
+                    document.body.style.background = 'linear-gradient(45deg, #ff00ff, #00ffff, #ffff00, #ff00ff)';
+                    document.body.style.backgroundSize = '400% 400%';
+                    document.body.style.animation = 'rainbow 5s ease infinite';
+                    
+                    // Add rainbow animation
+                    const style = document.createElement('style');
+                    style.innerHTML = `
+                        @keyframes rainbow {
+                            0% { background-position: 0% 50%; }
+                            50% { background-position: 100% 50%; }
+                            100% { background-position: 0% 50%; }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                    
+                    konamiIndex = 0;
+                }
+            } else {
+                konamiIndex = 0;
+            }
+        });
+    </script>
+<p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Made with <img src="https://enzostvs-deepsite.hf.space/logo.svg" alt="DeepSite Logo" style="width: 16px; height: 16px; vertical-align: middle;display:inline-block;margin-right:3px;filter:brightness(0) invert(1);"><a href="https://enzostvs-deepsite.hf.space" style="color: #fff;text-decoration: underline;" target="_blank" >DeepSite</a> - 🧬 <a href="https://enzostvs-deepsite.hf.space?remix=nosleg/retro-snake" style="color: #fff;text-decoration: underline;" target="_blank" >Remix</a></p></body>
+</html>
